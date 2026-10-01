@@ -5,228 +5,1074 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ameisenkolonie</title>
 <style>
-  :root { --bg: #0b0d10; --panel: rgba(20, 24, 30, .75); --text: #e8edf2; --accent: #7dffb0; }
+  :root { --bg: #0b0d10; --panel: rgba(18, 22, 28, .78); --text: #e8edf2; --muted: rgba(232,237,242,.62);
+    --line: rgba(255,255,255,.12); --blue: #6aa0ff; --red: #ff6a5c; --accent: #7dffb0; }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
-    font-family: system-ui, sans-serif; overflow: hidden; }
-  canvas { display: block; width: 100vw; height: 100vh; }
-  #hud { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: center;
-    gap: 12px; padding: 12px; pointer-events: none; flex-wrap: wrap; }
-  .chip { background: var(--panel); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.1);
-    border-radius: 12px; padding: 8px 16px; text-align: center; }
-  .chip b { display: block; font-size: 26px; color: var(--accent); font-variant-numeric: tabular-nums;
-    text-shadow: 0 0 12px rgba(125,255,176,.6); }
-  .chip span { font-size: 11px; opacity: .7; text-transform: uppercase; letter-spacing: .08em; }
-  #help { position: fixed; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 12px; opacity: .55;
-    pointer-events: none; padding: 0 12px; }
-  #reset { pointer-events: auto; cursor: pointer; background: var(--panel); color: var(--text);
-    border: 1px solid rgba(255,255,255,.15); border-radius: 12px; padding: 8px 16px; font: inherit; }
-  #reset:hover { border-color: var(--accent); }
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  canvas#c { display: block; width: 100vw; height: 100vh; touch-action: none; }
+  .glass { background: var(--panel); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--line); border-radius: 12px; }
+
+  #hud { position: fixed; top: 10px; left: 262px; right: 10px; display: flex; justify-content: center;
+    gap: 10px; flex-wrap: wrap; pointer-events: none; }
+  .card { padding: 8px 14px 6px; border-top: 3px solid var(--c); min-width: 250px; }
+  .card h4 { margin: 0 0 4px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--c); }
+  .nums { display: flex; gap: 16px; }
+  .nums div { text-align: center; }
+  .nums b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; color: var(--c);
+    text-shadow: 0 0 12px color-mix(in srgb, var(--c) 60%, transparent); }
+  .nums span, .card small { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .card small { display: block; margin-top: 4px; text-transform: none; letter-spacing: 0; font-size: 11px; }
+  #env { padding: 8px 14px; font-size: 13px; align-self: stretch; display: flex; align-items: center; }
+  #env.alert { color: #ffd25a; border-color: #ffd25a; }
+
+  #panel { position: fixed; top: 10px; left: 10px; width: 240px; padding: 12px; display: flex;
+    flex-direction: column; gap: 10px; font-size: 12px; max-height: calc(100vh - 20px); overflow: auto; }
+  #panel label { display: block; }
+  #panel label span { display: flex; justify-content: space-between; margin-bottom: 2px; color: var(--muted); }
+  #panel output { color: var(--text); font-variant-numeric: tabular-nums; }
+  #panel input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  button { cursor: pointer; background: rgba(255,255,255,.06); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 8px; font: inherit; font-size: 12px; }
+  button:hover { border-color: var(--accent); }
+  button.on { background: rgba(125,255,176,.18); border-color: var(--accent); }
+  .legend { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; color: var(--muted); font-size: 11px; align-items: center; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 3px; box-shadow: 0 0 6px currentColor; background: currentColor; }
+
+  #chartWrap { position: fixed; right: 10px; bottom: 10px; padding: 6px; }
+  #chart { display: block; width: 300px; height: 200px; }
+  #help { position: fixed; bottom: 8px; left: 262px; right: 340px; font-size: 11.5px; color: var(--muted);
+    pointer-events: none; text-align: left; }
+
+  @media (max-width: 900px) {
+    #hud { left: 10px; top: 10px; }
+    #panel { top: auto; bottom: 10px; max-height: 40vh; }
+    #chartWrap, #help { display: none; }
+    .card { min-width: 0; padding: 6px 10px; } .nums { gap: 10px; } .nums b { font-size: 18px; }
+  }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+
 <div id="hud">
-  <div class="chip"><b id="food">0</b><span>Futter gesammelt</span></div>
-  <div class="chip"><b id="ants">0</b><span>Ameisen</span></div>
-  <button id="reset">Neustart</button>
+  <div class="card glass" style="--c: var(--blue)">
+    <h4>Blaue Kolonie</h4>
+    <div class="nums">
+      <div><b id="c0f">0</b><span>Futter gesammelt</span></div>
+      <div><b id="c0s">0</b><span>Vorrat</span></div>
+      <div><b id="c0n">0</b><span>Ameisen</span></div>
+    </div>
+    <small id="c0x"></small>
+  </div>
+  <div class="glass" id="env">☀ Tag</div>
+  <div class="card glass" style="--c: var(--red)">
+    <h4>Rote Kolonie</h4>
+    <div class="nums">
+      <div><b id="c1f">0</b><span>Futter gesammelt</span></div>
+      <div><b id="c1s">0</b><span>Vorrat</span></div>
+      <div><b id="c1n">0</b><span>Ameisen</span></div>
+    </div>
+    <small id="c1x"></small>
+  </div>
 </div>
-<div id="help">Klick: Futterquelle platzieren · Mausrad / Leertaste: Geschwindigkeit · Pheromone verblassen mit der Zeit</div>
+
+<div id="panel" class="glass">
+  <label><span>Ameisen (max. je Kolonie) <output id="oCap"></output></span>
+    <input id="cap" type="range" min="20" max="400" step="10" value="150"></label>
+  <label><span>Simulationsgeschwindigkeit <output id="oSpeed"></output></span>
+    <input id="speed" type="range" min="0.5" max="6" step="0.5" value="1"></label>
+  <label><span>Pheromon-Verblassen <output id="oFade"></output></span>
+    <input id="fade" type="range" min="0" max="100" step="1" value="15"></label>
+  <div class="btns">
+    <button id="viewBtn">Untergrund (U)</button>
+    <button id="bearBtn">Ameisenbär (A)</button>
+    <button id="clearBtn">Hindernisse weg</button>
+    <button id="reset">Neustart</button>
+  </div>
+  <div class="legend">
+    <span><i class="dot" style="color:#46ff82"></i><i class="dot" style="color:#46a0ff"></i></span><span>Blau: Spur zum Futter / zum Nest</span>
+    <span><i class="dot" style="color:#ffaa32"></i><i class="dot" style="color:#ff46aa"></i></span><span>Rot: Spur zum Futter / zum Nest</span>
+    <span><i class="dot" style="color:#ffe650"></i></span><span>Alarm-Pheromon</span>
+  </div>
+</div>
+
+<div id="chartWrap" class="glass"><canvas id="chart"></canvas></div>
+<div id="help">Klick: Futter platzieren · Shift + Ziehen: Hindernisse zeichnen · Shift + Rechtsklick-Ziehen: Hindernisse radieren · U: Untergrund · A: Ameisenbär</div>
 
 <script>
 (() => {
-  const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d');
-  const foodEl = document.getElementById('food');
-  const antsEl = document.getElementById('ants');
+  'use strict';
+  const TAU = Math.PI * 2;
+  const $ = id => document.getElementById(id);
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const angDiff = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
+  const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
-  const CELL = 4;              // Pixel pro Pheromon-Zelle
-  const ANT_COUNT = 250;
-  const EVAPORATION = 0.992;   // pro Schritt: langsames Verblassen
-  const DIFFUSION = 0.12;
-  const DEPOSIT = 1.0;
+  const canvas = $('c'), ctx = canvas.getContext('2d');
+  const chartCv = $('chart'), cg = chartCv.getContext('2d');
+
+  // ---------- Konstanten ----------
+  const NEST_R = 24;
   const SENSOR_DIST = 14, SENSOR_ANGLE = 0.6;
-  const NEST_R = 22;
+  const DIFFUSION = 0.12;
+  const EGG_COST = 2, EGG_TIME = 420, LAY_INTERVAL = 50;
+  const DAY_LEN = 10800;       // Schritte pro Tag-Nacht-Zyklus
+  const HIST_MAX = 240;
+  const COL = [
+    { name: 'Blau', body: '#4a7fe0', dark: '#1b3470', food: [70, 255, 130], home: [70, 150, 255] },
+    { name: 'Rot',  body: '#d8473b', dark: '#6e1a14', food: [255, 170, 50], home: [255, 70, 170] },
+  ];
 
-  let W, H, gw, gh, pher, tmp, img, glow, glowCtx;
-  let nest, foods, ants, collected, speed = 1;
+  // ---------- Zustand ----------
+  let W, H, DPR, CELL, gw, gh;
+  let obs, obsDirty, obsCv, obsCtx, shCv, shCtx, obsImg, shImg;
+  let groundCv, ugCv, pherCv, pherCtx, pherImg, tmp;
+  let cols, ants, foods, anteater, nextAnteater;
+  let tick, dayTick, acc = 0, underground = false;
+  let hist = [];
+  const cfg = { cap: 150, speed: 1, fade: 15 };
+
+  // ---------- Hilfen: Zellen ----------
+  const inGrid = (gx, gy) => gx >= 0 && gy >= 0 && gx < gw && gy < gh;
+  function blocked(x, y) {
+    const gx = (x / CELL) | 0, gy = (y / CELL) | 0;
+    return !inGrid(gx, gy) || obs[gy * gw + gx] === 1;
+  }
+  function sampleAt(arr, x, y) {
+    const gx = (x / CELL) | 0, gy = (y / CELL) | 0;
+    if (!inGrid(gx, gy)) return -1;
+    const i = gy * gw + gx;
+    return obs[i] ? -1 : arr[i];
+  }
+  function deposit(arr, x, y, v, cap) {
+    const gx = (x / CELL) | 0, gy = (y / CELL) | 0;
+    if (!inGrid(gx, gy)) return;
+    const i = gy * gw + gx;
+    arr[i] = Math.min(arr[i] + v, cap);
+  }
+
+  // ---------- Aufbau ----------
+  function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
 
   function resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
     W = innerWidth; H = innerHeight;
-    canvas.width = W * dpr; canvas.height = H * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const cw = 300, ch = 200;
+    chartCv.width = cw * DPR; chartCv.height = ch * DPR;
+    cg.setTransform(DPR, 0, 0, DPR, 0, 0);
+    CELL = W * H > 1.1e6 ? 6 : 4;
     gw = Math.ceil(W / CELL); gh = Math.ceil(H / CELL);
-    glow = document.createElement('canvas'); glow.width = gw; glow.height = gh;
-    glowCtx = glow.getContext('2d');
-    img = glowCtx.createImageData(gw, gh);
+    pherCv = mkCanvas(gw, gh); pherCtx = pherCv.getContext('2d'); pherImg = pherCtx.createImageData(gw, gh);
+    obsCv = mkCanvas(gw, gh); obsCtx = obsCv.getContext('2d'); obsImg = obsCtx.createImageData(gw, gh);
+    shCv = mkCanvas(gw, gh); shCtx = shCv.getContext('2d'); shImg = shCtx.createImageData(gw, gh);
+    buildGround();
+    buildUndergroundBg();
     init();
   }
 
-  function addFood(x, y) {
-    foods.push({ x, y, amount: 200, max: 200, r: 16 });
-  }
-
   function init() {
-    pher = new Float32Array(gw * gh);
-    tmp = new Float32Array(gw * gh);
-    nest = { x: W / 2, y: H / 2 };
-    collected = 0;
-    foods = [];
-    const n = 5;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2 + Math.random() * 0.6;
-      const d = Math.min(W, H) * (0.28 + Math.random() * 0.15);
-      addFood(
-        Math.max(40, Math.min(W - 40, nest.x + Math.cos(a) * d * (W / H > 1 ? 1.4 : 1))),
-        Math.max(70, Math.min(H - 40, nest.y + Math.sin(a) * d))
-      );
-    }
-    ants = Array.from({ length: ANT_COUNT }, () => ({
-      x: nest.x, y: nest.y, a: Math.random() * Math.PI * 2, carry: false
+    const n = gw * gh;
+    tmp = new Float32Array(n);
+    obs = new Uint8Array(n); obsDirty = true;
+    tick = 0; dayTick = DAY_LEN * 0.05; hist = []; anteater = null; nextAnteater = 1500;
+    cols = COL.map((d, i) => ({
+      ...d, id: i, x: W * (i ? 0.74 : 0.26), y: H * 0.54,
+      stock: 6, collected: 0, born: 0, died: 0, eggs: [], layT: 0,
+      n: 0, sold: 0, work: 0, queen: null,
+      food: new Float32Array(n), home: new Float32Array(n), alarm: new Float32Array(n), ug: null,
     }));
+    ants = [];
+    for (const c of cols) {
+      const q = mkAnt(c.id, 2, c.x, c.y); q.age = 0; ants.push(q); c.queen = q;
+      for (let k = 0; k < 8; k++) ants.push(mkAnt(c.id, 1, c.x + rand(-30, 30), c.y + rand(-30, 30), true));
+      for (let k = 0; k < 50; k++) ants.push(mkAnt(c.id, 0, c.x + rand(-10, 10), c.y + rand(-10, 10), true));
+    }
+    foods = [];
+    for (let i = 0; i < 7; i++) {
+      for (let tries = 0; tries < 40; tries++) {
+        const x = rand(W * 0.1, W * 0.9), y = rand(90, H - 50);
+        if (cols.every(c => Math.hypot(c.x - x, c.y - y) > 120)) { addFood(x, y); break; }
+      }
+    }
+    for (const c of cols) ugInit(c);
   }
 
-  const idx = (x, y) => {
-    const gx = (x / CELL) | 0, gy = (y / CELL) | 0;
-    return gx < 0 || gy < 0 || gx >= gw || gy >= gh ? -1 : gy * gw + gx;
-  };
-  const sense = (x, y) => { const i = idx(x, y); return i < 0 ? -1 : pher[i]; };
-  const angDiff = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
+  function addFood(x, y) {
+    foods.push({ x, y, amount: 220, max: 220, r: 15,
+      g: Array.from({ length: 9 }, () => [rand(-1, 1), rand(-1, 1), rand(1.5, 3)]) });
+  }
 
-  function stepAnt(a) {
-    if (a.carry) {
-      // Zurück zum Nest, leichtes Rauschen, Pheromon hinterlassen
-      const target = Math.atan2(nest.y - a.y, nest.x - a.x);
-      a.a += angDiff(a.a, target) * 0.18 + (Math.random() - 0.5) * 0.3;
-      const i = idx(a.x, a.y);
-      if (i >= 0) pher[i] = Math.min(pher[i] + DEPOSIT, 12);
-      if (Math.hypot(nest.x - a.x, nest.y - a.y) < NEST_R) {
-        a.carry = false; collected++;
-        a.a += Math.PI; // wieder rausgehen
+  function mkAnt(c, role, x, y, aged) {
+    const life = role === 2 ? 1e12 : role === 1 ? rand(7000, 9500) : rand(5000, 7500);
+    return { x, y, a: rand(0, TAU), col: c, role, carry: false, dep: 1,
+      hp: role === 1 ? 30 : role === 2 ? 150 : 10, age: aged ? rand(0, life * 0.5) : 0, life,
+      leg: rand(0, TAU), flee: 0, avoid: 0, avDir: 1, dead: false };
+  }
+
+  // ---------- Texturen ----------
+  function buildGround() {
+    groundCv = mkCanvas(W, H);
+    const g = groundCv.getContext('2d');
+    const id = g.createImageData(W, H), d = id.data;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const lf = Math.sin(x * 0.011 + Math.sin(y * 0.017) * 2) * 0.5 + Math.sin(y * 0.009 + x * 0.004) * 0.5;
+        const hf = (Math.random() - 0.5) * 26;
+        const o = (y * W + x) * 4;
+        d[o] = 108 + lf * 14 + hf; d[o + 1] = 80 + lf * 10 + hf * 0.8; d[o + 2] = 52 + lf * 7 + hf * 0.6; d[o + 3] = 255;
       }
-    } else {
-      // Pheromon-Sensoren links / mitte / rechts
-      const sx = d => a.x + Math.cos(a.a + d) * SENSOR_DIST;
-      const sy = d => a.y + Math.sin(a.a + d) * SENSOR_DIST;
-      const l = sense(sx(-SENSOR_ANGLE), sy(-SENSOR_ANGLE));
-      const m = sense(sx(0), sy(0));
-      const r = sense(sx(SENSOR_ANGLE), sy(SENSOR_ANGLE));
-      if (Math.max(l, m, r) > 0.05) {
-        if (m >= l && m >= r) a.a += (Math.random() - 0.5) * 0.15;
-        else if (l > r) a.a -= 0.25;
-        else a.a += 0.25;
+    }
+    g.putImageData(id, 0, 0);
+    const area = W * H / 700000;
+    for (let i = 0; i < 380 * area; i++) {   // Kieselsteine
+      const x = rand(0, W), y = rand(0, H), r = rand(1.2, 4.5);
+      g.fillStyle = 'rgba(40,28,18,.35)'; g.beginPath(); g.ellipse(x + 1, y + 1.5, r, r * 0.8, 0, 0, TAU); g.fill();
+      g.fillStyle = `rgba(${150 + rand(-20, 20)},${130 + rand(-20, 20)},${108 + rand(-15, 15)},.75)`;
+      g.beginPath(); g.ellipse(x, y, r, r * 0.8, rand(0, 3), 0, TAU); g.fill();
+    }
+    g.lineCap = 'round';
+    for (let i = 0; i < 70 * area; i++) {    // Zweige / Blattreste
+      const x = rand(0, W), y = rand(0, H), a = rand(0, TAU), l = rand(6, 16);
+      g.strokeStyle = 'rgba(70,48,30,.55)'; g.lineWidth = rand(0.8, 1.8);
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+    }
+    for (let i = 0; i < 90 * area; i++) {    // Grasbüschel
+      const x = rand(0, W), y = rand(0, H);
+      for (let k = 0; k < 5; k++) {
+        g.strokeStyle = `rgba(${70 + rand(0, 30)},${110 + rand(0, 40)},${40 + rand(0, 20)},.8)`;
+        g.lineWidth = 1.2; g.beginPath(); g.moveTo(x + k * 1.2, y);
+        g.lineTo(x + k * 1.2 + rand(-4, 4), y - rand(4, 9)); g.stroke();
       }
-      a.a += (Math.random() - 0.5) * 0.5; // zufälliges Umherlaufen
-      for (const f of foods) {
-        if (f.amount > 0 && Math.hypot(f.x - a.x, f.y - a.y) < f.r + 3) {
-          f.amount--; a.carry = true; a.a += Math.PI; break;
+    }
+  }
+
+  const ugSY = () => H * 0.17;
+
+  function buildUndergroundBg() {
+    ugCv = mkCanvas(W, H);
+    const g = ugCv.getContext('2d'), SY = ugSY();
+    const id = g.createImageData(W, H), d = id.data;
+    for (let y = Math.floor(SY); y < H; y++) {
+      const t = (y - SY) / (H - SY);
+      for (let x = 0; x < W; x++) {
+        const n = (Math.random() - 0.5) * 20 + Math.sin(y * 0.05 + Math.sin(x * 0.01) * 3) * 5;
+        const o = (y * W + x) * 4;
+        d[o] = lerp(118, 62, t) + n; d[o + 1] = lerp(84, 42, t) + n * 0.8; d[o + 2] = lerp(54, 28, t) + n * 0.6; d[o + 3] = 255;
+      }
+    }
+    g.putImageData(id, 0, 0);
+    const area = W * H / 700000;
+    for (let i = 0; i < 70 * area; i++) {    // Steine
+      const x = rand(0, W), y = rand(SY + 20, H), r = rand(3, 12);
+      g.fillStyle = Math.random() < 0.5 ? 'rgba(25,18,12,.35)' : 'rgba(160,140,118,.35)';
+      g.beginPath(); g.ellipse(x, y, r, r * 0.7, rand(0, 3), 0, TAU); g.fill();
+    }
+    g.lineCap = 'round';
+    for (let i = 0; i < 9; i++) {            // Wurzeln
+      let x = rand(0, W), y = SY, a = Math.PI / 2 + rand(-0.4, 0.4);
+      g.strokeStyle = 'rgba(150,118,80,.7)'; g.lineWidth = rand(1.5, 3);
+      g.beginPath(); g.moveTo(x, y);
+      for (let k = 0; k < rand(8, 20); k++) { a += rand(-0.5, 0.5); x += Math.cos(a) * 9; y += Math.sin(a) * 9; g.lineTo(x, y); }
+      g.stroke();
+    }
+    g.fillStyle = '#3d5f26'; g.fillRect(0, SY - 3, W, 7);
+    for (let x = 0; x < W; x += 2) {         // Gras
+      g.strokeStyle = `rgb(${60 + rand(0, 30)},${110 + rand(0, 50)},${40 + rand(0, 20)})`;
+      g.lineWidth = 1.6; g.beginPath(); g.moveTo(x, SY + 1);
+      g.lineTo(x + rand(-3, 3), SY - rand(6, 17)); g.stroke();
+    }
+  }
+
+  // ---------- Räumlicher Hash ----------
+  const HS = 24;
+  let hw, hh, hhead, hnext;
+  function buildHash() {
+    hw = Math.ceil(W / HS); hh = Math.ceil(H / HS);
+    if (!hhead || hhead.length !== hw * hh) hhead = new Int32Array(hw * hh);
+    hhead.fill(-1);
+    if (!hnext || hnext.length < ants.length) hnext = new Int32Array(ants.length + 256);
+    for (let i = 0; i < ants.length; i++) {
+      const a = ants[i];
+      const k = clamp((a.y / HS) | 0, 0, hh - 1) * hw + clamp((a.x / HS) | 0, 0, hw - 1);
+      hnext[i] = hhead[k]; hhead[k] = i;
+    }
+  }
+  function nearestEnemy(a, r) {
+    const gx = clamp((a.x / HS) | 0, 0, hw - 1), gy = clamp((a.y / HS) | 0, 0, hh - 1);
+    const R = Math.ceil(r / HS);
+    let best = null, bd = r * r;
+    for (let y = Math.max(0, gy - R); y <= Math.min(hh - 1, gy + R); y++) {
+      for (let x = Math.max(0, gx - R); x <= Math.min(hw - 1, gx + R); x++) {
+        for (let j = hhead[y * hw + x]; j !== -1; j = hnext[j]) {
+          const b = ants[j];
+          if (b.col === a.col || b.dead) continue;
+          const d2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+          if (d2 < bd) { bd = d2; best = b; }
         }
       }
     }
-    const sp = 1.6;
-    a.x += Math.cos(a.a) * sp; a.y += Math.sin(a.a) * sp;
-    if (a.x < 2 || a.x > W - 2) { a.a = Math.PI - a.a; a.x = Math.max(2, Math.min(W - 2, a.x)); }
-    if (a.y < 2 || a.y > H - 2) { a.a = -a.a; a.y = Math.max(2, Math.min(H - 2, a.y)); }
+    return best;
   }
 
-  function updatePheromones() {
-    // Diffusion + Verdunstung
+  // ---------- Ameisen ----------
+  function kill(a) { if (!a.dead) { a.dead = true; cols[a.col].died++; } }
+
+  function hit(a, e) {
+    const dmg = a.role === 1 ? 0.35 : a.role === 2 ? 0.5 : 0.12;
+    e.hp -= dmg;
+    if (e.hp <= 0) kill(e);
+  }
+
+  function move(a, sp) {
+    const nx = a.x + Math.cos(a.a) * sp, ny = a.y + Math.sin(a.a) * sp;
+    if (blocked(nx, ny)) {
+      a.avDir = Math.random() < 0.5 ? -1 : 1;
+      a.a += a.avDir * rand(1.0, 2.2); a.avoid = 12;
+    } else { a.x = nx; a.y = ny; a.leg += sp * 0.55; }
+    if (a.x < 3) { a.x = 3; a.a = Math.PI - a.a; } else if (a.x > W - 3) { a.x = W - 3; a.a = Math.PI - a.a; }
+    if (a.y < 3) { a.y = 3; a.a = -a.a; } else if (a.y > H - 3) { a.y = H - 3; a.a = -a.a; }
+  }
+
+  // dreht a.a Richtung größtem (dir=1) bzw. kleinstem (dir=-1) Wert der drei Sensoren
+  function steerBy(a, arr, dir, strength) {
+    const s = (d) => sampleAt(arr, a.x + Math.cos(a.a + d) * SENSOR_DIST, a.y + Math.sin(a.a + d) * SENSOR_DIST);
+    let l = s(-SENSOR_ANGLE), m = s(0), r = s(SENSOR_ANGLE);
+    if (dir < 0) { l = l < 0 ? -99 : -l; m = m < 0 ? -99 : -m; r = r < 0 ? -99 : -r; }
+    else if (Math.max(l, m, r) <= 0.04) return false;
+    if (m >= l && m >= r) a.a += (Math.random() - 0.5) * 0.1;
+    else if (l > r) a.a -= strength; else a.a += strength;
+    return true;
+  }
+
+  function addAlarm(c, x, y, v) { deposit(c.alarm, x, y, v, 8); }
+
+  function stepAnt(a) {
+    const c = cols[a.col];
+    if (++a.age > a.life) { kill(a); return; }
+    const soldier = a.role === 1;
+
+    // Kämpfe gegen fremde Kolonie
+    const e = nearestEnemy(a, a.role === 0 ? 7 : soldier ? 60 : 9);
+    if (e) {
+      const dx = e.x - a.x, dy = e.y - a.y, d = Math.hypot(dx, dy);
+      if (d < 7) { hit(a, e); a.a = Math.atan2(dy, dx); addAlarm(c, a.x, a.y, 0.5); return; }
+      if (soldier) { a.a += angDiff(a.a, Math.atan2(dy, dx)) * 0.3; move(a, 1.6); return; }
+    }
+    if (a.role === 2) { a.a += (Math.random() - 0.5) * 0.1; return; }  // Königin bleibt im Nest
+
+    // Ameisenbär: Soldaten greifen an, Arbeiterinnen fliehen und geben Alarm
+    if (anteater) {
+      const dx = anteater.x - a.x, dy = anteater.y - a.y, d = Math.hypot(dx, dy);
+      if (soldier) {
+        const nestDist = Math.hypot(anteater.x - c.x, anteater.y - c.y);
+        if (d < 260 && (d < 140 || nestDist < 260)) {
+          a.a += angDiff(a.a, Math.atan2(dy, dx)) * 0.25 + (Math.random() - 0.5) * 0.2;
+          if (d < 34) { anteater.hp -= 0.03; addAlarm(c, a.x, a.y, 0.8); }
+          move(a, 1.7); return;
+        }
+      } else if (d < 120) {
+        a.flee = 50; a.a = Math.atan2(-dy, -dx) + rand(-0.4, 0.4); addAlarm(c, a.x, a.y, 1.4);
+      }
+    }
+    const av = Math.max(0, sampleAt(c.alarm, a.x, a.y));
+    if (soldier) {
+      if (av > 0.25) { steerBy(a, c.alarm, 1, 0.3); a.a += (Math.random() - 0.5) * 0.3; move(a, 1.8); return; }
+      // Patrouille ums Nest
+      const dn = Math.hypot(a.x - c.x, a.y - c.y);
+      if (dn > 85) a.a += angDiff(a.a, Math.atan2(c.y - a.y, c.x - a.x)) * 0.1;
+      else if (dn < NEST_R + 10) a.a += angDiff(a.a, Math.atan2(a.y - c.y, a.x - c.x)) * 0.1;
+      a.a += (Math.random() - 0.5) * 0.5; move(a, 1.0); return;
+    }
+    if (a.flee > 0 || av > 0.6) {
+      if (a.flee <= 0) a.flee = 25;
+      a.flee--;
+      steerBy(a, c.alarm, -1, 0.3);
+      a.a += (Math.random() - 0.5) * 0.4; move(a, 2.4); return;
+    }
+
+    // Arbeiterin: Futtersuche bzw. Heimweg
+    if (a.avoid > 0) { a.avoid--; a.a += a.avDir * 0.18; }
+    else if (blocked(a.x + Math.cos(a.a) * 9, a.y + Math.sin(a.a) * 9)) {
+      a.avDir = Math.random() < 0.5 ? -1 : 1; a.avoid = 10; a.a += a.avDir * 0.9;
+    } else {
+      steerBy(a, a.carry ? c.home : c.food, 1, 0.3);
+      if (a.carry) a.a += angDiff(a.a, Math.atan2(c.y - a.y, c.x - a.x)) * 0.07;
+    }
+    a.a += (Math.random() - 0.5) * (a.carry ? 0.25 : 0.5);
+    a.dep = Math.max(0.08, a.dep * 0.9965);
+
+    if (a.carry) {
+      deposit(c.food, a.x, a.y, a.dep, 12);
+      if (Math.hypot(c.x - a.x, c.y - a.y) < NEST_R) {
+        a.carry = false; c.stock++; c.collected++; a.dep = 1; a.a += Math.PI + (Math.random() - 0.5);
+      }
+    } else {
+      deposit(c.home, a.x, a.y, a.dep * 0.6, 12);
+      for (const f of foods) {
+        if (f.amount > 0 && Math.hypot(f.x - a.x, f.y - a.y) < f.r + 3) {
+          f.amount--; a.carry = true; a.dep = 1; a.a += Math.PI; break;
+        }
+      }
+    }
+    move(a, 1.5);
+  }
+
+  // ---------- Kolonie: Eier, Wachstum ----------
+  function colonyStep(c) {
+    for (let i = c.eggs.length - 1; i >= 0; i--) {
+      const e = c.eggs[i];
+      if (++e.t >= EGG_TIME) {
+        c.eggs.splice(i, 1);
+        ants.push(mkAnt(c.id, e.role, c.x + rand(-8, 8), c.y + rand(-8, 8)));
+        c.born++;
+      }
+    }
+    if (c.queen && !c.queen.dead) {
+      if (++c.layT >= LAY_INTERVAL && c.stock >= EGG_COST && c.n + c.eggs.length < cfg.cap) {
+        c.layT = 0; c.stock -= EGG_COST;
+        const pendingSold = c.eggs.filter(e => e.role === 1).length;
+        c.eggs.push({ t: 0, role: (c.sold + pendingSold) < 0.18 * c.n ? 1 : 0 });
+      }
+    }
+    if (c.n > cfg.cap && tick % 20 === 0) {
+      const start = (Math.random() * ants.length) | 0;
+      for (let k = 0; k < ants.length; k++) {
+        const a = ants[(start + k) % ants.length];
+        if (a.col === c.id && a.role === 0 && !a.dead) { kill(a); break; }
+      }
+    }
+  }
+
+  function countPop() {
+    for (const c of cols) { c.n = 0; c.sold = 0; c.work = 0; c.queen = null; }
+    for (const a of ants) {
+      if (a.dead) continue;
+      const c = cols[a.col]; c.n++;
+      if (a.role === 1) c.sold++; else if (a.role === 0) c.work++; else c.queen = a;
+    }
+  }
+
+  // ---------- Futter ----------
+  function foodStep() {
+    foods = foods.filter(f => f.amount > 0);
+    if (foods.length < 4 && tick % 600 === 0) {
+      for (let tries = 0; tries < 30; tries++) {
+        const x = rand(60, W - 60), y = rand(90, H - 60);
+        if (!blocked(x, y) && cols.every(c => Math.hypot(c.x - x, c.y - y) > 100)) { addFood(x, y); break; }
+      }
+    }
+  }
+
+  // ---------- Ameisenbär ----------
+  function spawnAnteater() {
+    const side = (Math.random() * 4) | 0;
+    const x = side === 0 ? -80 : side === 1 ? W + 80 : rand(0, W);
+    const y = side === 2 ? -80 : side === 3 ? H + 80 : rand(0, H);
+    const tc = cols[(Math.random() * 2) | 0];
+    anteater = { x, y, a: Math.atan2(tc.y - y, tc.x - x), state: 'in', t: 0, hp: 500, eatCd: 0, leg: 0,
+      tx: tc.x, ty: tc.y, eaten: 0 };
+  }
+
+  function stepAnteater() {
+    const A = anteater;
+    let sp = 0.55;
+    if (A.state === 'hunt') {
+      A.t++;
+      if (A.t % 10 === 0) {
+        let best = null, bd = 300 * 300;
+        for (const a of ants) {
+          if (a.dead || a.role === 2) continue;
+          const d2 = (a.x - A.x) ** 2 + (a.y - A.y) ** 2;
+          if (d2 < bd) { bd = d2; best = a; }
+        }
+        if (best) { A.tx = best.x; A.ty = best.y; }
+        else if (Math.hypot(A.tx - A.x, A.ty - A.y) < 40) { A.tx = rand(60, W - 60); A.ty = rand(60, H - 60); }
+      }
+      if (A.t > 2400 || A.hp < 250) {
+        A.state = 'flee';
+        const d = [A.x, W - A.x, A.y, H - A.y], m = d.indexOf(Math.min(...d));
+        A.tx = m === 0 ? -200 : m === 1 ? W + 200 : A.x; A.ty = m === 2 ? -200 : m === 3 ? H + 200 : A.y;
+      }
+      // fressen
+      A.eatCd--;
+      const sx = A.x + Math.cos(A.a) * 38, sy = A.y + Math.sin(A.a) * 38;
+      if (A.eatCd <= 0) {
+        for (const a of ants) {
+          if (!a.dead && a.role !== 2 && (a.x - sx) ** 2 + (a.y - sy) ** 2 < 22 * 22) {
+            kill(a); A.eaten++; A.eatCd = 10; break;
+          }
+        }
+      }
+    } else if (A.state === 'in') {
+      if (Math.hypot(A.tx - A.x, A.ty - A.y) < 120) { A.state = 'hunt'; A.t = 0; }
+    } else { sp = 1.0; }
+    A.a += clamp(angDiff(A.a, Math.atan2(A.ty - A.y, A.tx - A.x)), -0.03, 0.03);
+    A.x += Math.cos(A.a) * sp; A.y += Math.sin(A.a) * sp; A.leg += sp * 0.12;
+    if (A.state === 'flee' && (A.x < -150 || A.x > W + 150 || A.y < -150 || A.y > H + 150)) {
+      anteater = null; nextAnteater = tick + rand(2600, 5000);
+    }
+  }
+
+  // ---------- Pheromone ----------
+  function diffuse(arr, ev, sub) {
     for (let y = 0; y < gh; y++) {
       for (let x = 0; x < gw; x++) {
         const i = y * gw + x;
-        const v = pher[i];
-        const xl = x > 0 ? pher[i - 1] : v, xr = x < gw - 1 ? pher[i + 1] : v;
-        const yu = y > 0 ? pher[i - gw] : v, yd = y < gh - 1 ? pher[i + gw] : v;
-        const avg = (xl + xr + yu + yd) * 0.25;
-        let n = (v + (avg - v) * DIFFUSION) * EVAPORATION - 0.0008;
+        if (obs[i]) { tmp[i] = 0; continue; }
+        const v = arr[i];
+        const xl = x > 0 ? arr[i - 1] : v, xr = x < gw - 1 ? arr[i + 1] : v;
+        const yu = y > 0 ? arr[i - gw] : v, yd = y < gh - 1 ? arr[i + gw] : v;
+        const n = (v + ((xl + xr + yu + yd) * 0.25 - v) * DIFFUSION) * ev - sub;
         tmp[i] = n > 0 ? n : 0;
       }
     }
-    [pher, tmp] = [tmp, pher];
+    arr.set(tmp);
+  }
+  function updatePheromones() {
+    const ev = 1 - (0.001 + cfg.fade * 0.0005);
+    for (const c of cols) {
+      diffuse(c.food, ev, 0.0008);
+      diffuse(c.home, ev, 0.0008);
+      diffuse(c.alarm, 0.955, 0.004);
+    }
   }
 
-  function renderPheromones() {
-    const d = img.data;
-    for (let i = 0; i < pher.length; i++) {
-      const v = Math.min(pher[i] / 4, 1);
-      const o = i * 4;
-      const g = Math.pow(v, 0.6);
-      d[o] = 60 + 195 * v * v;        // heißer Kern
-      d[o + 1] = 255 * g;
-      d[o + 2] = 140 * g + 80 * v * v;
-      d[o + 3] = 255 * g;
+  // ---------- Simulationsschritt ----------
+  function step() {
+    tick++; dayTick++;
+    countPop();
+    buildHash();
+    for (const c of cols) colonyStep(c);
+    for (let i = 0; i < ants.length; i++) { const a = ants[i]; if (!a.dead) stepAnt(a); }
+    if (anteater) stepAnteater(); else if (tick >= nextAnteater) spawnAnteater();
+    updatePheromones();
+    foodStep();
+    ants = ants.filter(a => !a.dead);
+    for (const c of cols) ugStep(c);
+    if (tick % 30 === 0) {
+      countPop();
+      hist.push({ p: cols.map(c => c.n), s: cols.map(c => c.stock) });
+      if (hist.length > HIST_MAX) hist.shift();
     }
-    glowCtx.putImageData(img, 0, 0);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.filter = 'blur(3px)';
-    ctx.drawImage(glow, 0, 0, gw * CELL, gh * CELL);
-    ctx.filter = 'none';
-    ctx.globalAlpha = 0.6;
-    ctx.drawImage(glow, 0, 0, gw * CELL, gh * CELL);
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
   }
 
-  function draw() {
-    ctx.fillStyle = '#0b0d10';
-    ctx.fillRect(0, 0, W, H);
-
-    renderPheromones();
-
-    // Futterquellen
-    for (const f of foods) {
-      if (f.amount <= 0) continue;
-      const r = f.r * (0.45 + 0.55 * f.amount / f.max);
-      const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r * 2.2);
-      g.addColorStop(0, 'rgba(255,214,90,.5)'); g.addColorStop(1, 'rgba(255,214,90,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, r * 2.2, 0, 7); ctx.fill();
-      ctx.fillStyle = '#ffd25a'; ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, 7); ctx.fill();
-    }
-
-    // Nest
-    const ng = ctx.createRadialGradient(nest.x, nest.y, 0, nest.x, nest.y, NEST_R * 2.5);
-    ng.addColorStop(0, 'rgba(160,110,70,.55)'); ng.addColorStop(1, 'rgba(160,110,70,0)');
-    ctx.fillStyle = ng; ctx.beginPath(); ctx.arc(nest.x, nest.y, NEST_R * 2.5, 0, 7); ctx.fill();
-    ctx.fillStyle = '#5a3d27'; ctx.beginPath(); ctx.arc(nest.x, nest.y, NEST_R, 0, 7); ctx.fill();
-    ctx.fillStyle = '#2a1a0f'; ctx.beginPath(); ctx.arc(nest.x, nest.y, NEST_R * 0.5, 0, 7); ctx.fill();
-
-    // Ameisen
-    for (const a of ants) {
-      ctx.fillStyle = a.carry ? '#ffe9a0' : '#e8edf2';
-      ctx.beginPath(); ctx.arc(a.x, a.y, 1.8, 0, 7); ctx.fill();
-      ctx.fillStyle = a.carry ? '#ffd25a' : '#aeb7c0';
-      ctx.beginPath();
-      ctx.arc(a.x - Math.cos(a.a) * 2.4, a.y - Math.sin(a.a) * 2.4, 1.4, 0, 7); ctx.fill();
-      if (a.carry) {
-        ctx.fillStyle = '#ffd25a';
-        ctx.beginPath();
-        ctx.arc(a.x + Math.cos(a.a) * 3, a.y + Math.sin(a.a) * 3, 1.6, 0, 7); ctx.fill();
+  // ---------- Untergrund ----------
+  const ptOut = { x: 0, y: 0, ang: 0 };
+  function makePath(pts) {
+    const cum = [0];
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    return { pts, cum, len: cum[cum.length - 1] };
+  }
+  function pointAt(p, s) {
+    s = clamp(s, 0, p.len);
+    let i = 1;
+    while (i < p.cum.length - 1 && p.cum[i] < s) i++;
+    const seg = p.cum[i] - p.cum[i - 1] || 1, t = (s - p.cum[i - 1]) / seg;
+    const a = p.pts[i - 1], b = p.pts[i];
+    ptOut.x = lerp(a[0], b[0], t); ptOut.y = lerp(a[1], b[1], t);
+    ptOut.ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+    return ptOut;
+  }
+  function prefixPts(p, s) {
+    const out = [p.pts[0]];
+    for (let i = 1; i < p.pts.length; i++) {
+      if (p.cum[i] <= s) out.push(p.pts[i]);
+      else {
+        const t = (s - p.cum[i - 1]) / (p.cum[i] - p.cum[i - 1]);
+        out.push([lerp(p.pts[i - 1][0], p.pts[i][0], t), lerp(p.pts[i - 1][1], p.pts[i][1], t)]);
+        break;
       }
     }
-    foodEl.textContent = collected;
-    antsEl.textContent = ants.length;
+    return out;
   }
+  function mkTunnel(own, parent, branchS, ch) {
+    const ownPath = makePath(own);
+    const fullPts = parent ? prefixPts(parent.fullPath, branchS).concat(own.slice(1)) : own.slice();
+    const fullPath = makePath(fullPts);
+    return { own: ownPath, fullPath, startS: parent ? fullPath.len - ownPath.len : 0, prog: 0, ch };
+  }
+  const CH_TYPES = ['Brutkammer', 'Vorrat', 'Ruhekammer', 'Pilzgarten', 'Abfall', 'Wache', 'Vorrat II', 'Ruhekammer II'];
+  const dugExtent = t => t.startS + t.prog;
 
-  function frame() {
-    for (let s = 0; s < speed; s++) {
-      for (const a of ants) stepAnt(a);
-      updatePheromones();
+  function ugInit(c) {
+    const SY = ugSY(), ex = c.x, depth = (H - SY) * 0.4;
+    const pts = [[ex, SY], [ex + 7, SY + depth * 0.3], [ex - 6, SY + depth * 0.65], [ex + 2, SY + depth]];
+    const t = mkTunnel(pts, null, 0, { type: 'Königin', x: pts[3][0], y: pts[3][1], r: 26, rmax: 26 });
+    t.prog = t.own.len;
+    c.ug = { tunnels: [t], proj: null, diggers: [], traffic: [], mound: 10, wait: 0 };
+  }
+  const maxChambers = c => Math.min(9, 2 + Math.floor((c.n + c.stock * 0.5) / 18));
+
+  function newProject(c) {
+    const ug = c.ug, SY = ugSY();
+    let best = null;
+    for (let tries = 0; tries < 25; tries++) {
+      const par = ug.tunnels[(Math.random() * ug.tunnels.length) | 0];
+      const bs = rand(0.3, 1) * dugExtent(par);
+      const P = pointAt(par.fullPath, bs), px = P.x, py = P.y;
+      const dir = Math.random() < 0.5 ? -1 : 1;
+      const tx = clamp(px + dir * rand(60, 150), 30, W - 30);
+      const ty = clamp(py + rand(10, 70), SY + 60, H - 40);
+      if (ug.tunnels.every(t => Math.hypot(t.ch.x - tx, t.ch.y - ty) > 60)) { best = { par, bs, px, py, tx, ty }; break; }
+      best = { par, bs, px, py, tx, ty };
     }
-    draw();
-    requestAnimationFrame(frame);
+    const pts = [[best.px, best.py]];
+    const n = 4;
+    for (let i = 1; i < n; i++) {
+      const t = i / n;
+      pts.push([lerp(best.px, best.tx, t) + rand(-7, 7), lerp(best.py, best.ty, t) + rand(-7, 7)]);
+    }
+    pts.push([best.tx, best.ty]);
+    const type = CH_TYPES[(ug.tunnels.length - 1) % CH_TYPES.length];
+    const t = mkTunnel(pts, best.par, best.bs, { type, x: best.tx, y: best.ty, r: 0, rmax: rand(16, 26) });
+    ug.tunnels.push(t);
+    return t;
   }
 
-  canvas.addEventListener('click', e => addFood(e.clientX, e.clientY));
-  addEventListener('wheel', e => { speed = Math.max(1, Math.min(6, speed + (e.deltaY < 0 ? 1 : -1))); });
-  addEventListener('keydown', e => { if (e.code === 'Space') { speed = speed >= 3 ? 1 : speed + 1; e.preventDefault(); } });
-  document.getElementById('reset').addEventListener('click', init);
+  function ugStep(c) {
+    const ug = c.ug;
+    if (!ug.proj) {
+      if (ug.tunnels.length < maxChambers(c) && ++ug.wait > 60) { ug.proj = newProject(c); ug.wait = 0; ug.diggers = []; }
+    }
+    const T = ug.proj;
+    if (T) {
+      const want = clamp(Math.round((c.n - 1) * 0.15), 2, 26);
+      while (ug.diggers.length < want) ug.diggers.push({ s: 0, state: 'down', timer: 0, v: rand(0.7, 1.0), carry: false, leg: rand(0, TAU), pause: Math.floor(rand(0, 80)) });
+      if (ug.diggers.length > want) ug.diggers.length = want;
+      for (const d of ug.diggers) {
+        if (d.pause > 0) { d.pause--; continue; }
+        const end = dugExtent(T);
+        if (d.state === 'down') {
+          d.s += d.v; d.leg += 0.4;
+          if (d.s >= end) { d.s = end; d.state = 'dig'; d.timer = 30; }
+        } else if (d.state === 'dig') {
+          if (T.prog < T.own.len) T.prog = Math.min(T.own.len, T.prog + 0.05);
+          else if (T.ch.r < T.ch.rmax) T.ch.r = Math.min(T.ch.rmax, T.ch.r + 0.03);
+          if (--d.timer <= 0) { d.state = 'up'; d.carry = true; }
+        } else {
+          d.s -= d.v; d.leg += 0.4;
+          if (d.s <= 0) { d.s = 0; d.state = 'down'; d.carry = false; ug.mound++; }
+        }
+      }
+      if (T.prog >= T.own.len && T.ch.r >= T.ch.rmax) { ug.proj = null; ug.diggers = []; }
+    }
+    // Verkehr in den fertigen Gängen
+    const want = Math.min(50, Math.floor(c.n / 3));
+    while (ug.traffic.length < want) {
+      const t = ug.tunnels[(Math.random() * ug.tunnels.length) | 0];
+      ug.traffic.push({ t, s: rand(0, dugExtent(t)), dir: Math.random() < 0.5 ? -1 : 1, v: rand(0.4, 0.8), leg: rand(0, TAU) });
+    }
+    if (ug.traffic.length > want) ug.traffic.length = want;
+    for (const m of ug.traffic) {
+      const ext = dugExtent(m.t);
+      m.s += m.dir * m.v; m.leg += 0.35;
+      if (m.s <= 0) { m.s = 0; m.dir = 1; m.t = ug.tunnels[(Math.random() * ug.tunnels.length) | 0]; }
+      else if (m.s >= ext) { m.s = ext; m.dir = -1; }
+    }
+  }
+
+  // ---------- Zeichnen: Ameise ----------
+  function drawAnt(x, y, ang, s, body, dark, leg, carry, role) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+    ctx.strokeStyle = dark; ctx.lineWidth = Math.max(0.7, 0.7 * s); ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++) {
+      const bx = (0.9 - i * 0.9) * s;
+      for (let k = -1; k <= 1; k += 2) {
+        const sw = Math.sin(leg + (((i + (k > 0 ? 1 : 0)) & 1) ? Math.PI : 0)) * 1.4 * s;
+        ctx.moveTo(bx, 0);
+        ctx.lineTo(bx + (1 - i) * 0.6 * s + sw * 0.5, k * 2.2 * s);
+        ctx.lineTo(bx + (1 - i) * 1.3 * s + sw, k * 3.7 * s);
+      }
+    }
+    const wig = Math.sin(leg * 0.7) * 0.4 * s;   // Fühler
+    ctx.moveTo(3.6 * s, 0.5 * s); ctx.lineTo(5.6 * s, 1.8 * s + wig);
+    ctx.moveTo(3.6 * s, -0.5 * s); ctx.lineTo(5.6 * s, -1.8 * s - wig);
+    if (role === 1) { ctx.moveTo(4 * s, 0.6 * s); ctx.lineTo(5.8 * s, 0.2 * s); ctx.moveTo(4 * s, -0.6 * s); ctx.lineTo(5.8 * s, -0.2 * s); }
+    ctx.stroke();
+    const q = role === 2, sd = role === 1;
+    if (q) {   // Flügelansätze
+      ctx.fillStyle = 'rgba(255,255,255,.28)';
+      ctx.beginPath(); ctx.ellipse(-1 * s, 2.3 * s, 2.6 * s, 0.9 * s, 0.5, 0, TAU); ctx.ellipse(-1 * s, -2.3 * s, 2.6 * s, 0.9 * s, -0.5, 0, TAU); ctx.fill();
+    }
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.ellipse(-3.3 * s, 0, 2.6 * s * (q ? 1.8 : 1), 1.9 * s * (q ? 1.4 : 1), 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, 0, 1.7 * s, 1.3 * s, 0, 0, TAU); ctx.fill();
+    const hs = sd ? 1.3 : 1;
+    ctx.beginPath(); ctx.ellipse(2.8 * s, 0, 1.5 * s * hs, 1.3 * s * hs, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.22)';
+    ctx.beginPath(); ctx.ellipse(-3.6 * s, -0.5 * s, 1.4 * s, 0.7 * s, 0, 0, TAU); ctx.fill();
+    if (q) { ctx.fillStyle = '#ffd25a'; ctx.beginPath(); ctx.arc(0, 0, 0.8 * s, 0, TAU); ctx.fill(); }
+    if (carry) { ctx.fillStyle = '#ffd25a'; ctx.beginPath(); ctx.arc(5.6 * s, 0, 1.6 * s, 0, TAU); ctx.fill(); }
+    ctx.restore();
+  }
+  const antScale = r => r === 2 ? 2.3 : r === 1 ? 1.5 : 1.1;
+
+  // ---------- Zeichnen: Oberfläche ----------
+  function nightAmount() {
+    const light = 0.5 + 0.5 * Math.cos((dayTick % DAY_LEN) / DAY_LEN * TAU);
+    return 1 - smooth(0.1, 0.6, light);
+  }
+
+  function rebuildObstacles() {
+    const d = obsImg.data, sh = shImg.data;
+    const o = (x, y) => inGrid(x, y) && obs[y * gw + x] === 1;
+    for (let y = 0; y < gh; y++) {
+      for (let x = 0; x < gw; x++) {
+        const i = y * gw + x, p = i * 4;
+        if (!obs[i]) { d[p + 3] = 0; sh[p + 3] = 0; continue; }
+        const edge = !o(x - 1, y) || !o(x + 1, y) || !o(x, y - 1) || !o(x, y + 1);
+        const hl = !o(x - 1, y) || !o(x, y - 1);
+        const v = (i * 2654435761 >>> 0) % 26;
+        const r = edge ? (hl ? 168 : 70) : 112 + v;
+        d[p] = r; d[p + 1] = r + 3; d[p + 2] = r + 9; d[p + 3] = 255;
+        sh[p] = 0; sh[p + 1] = 0; sh[p + 2] = 0; sh[p + 3] = 110;
+      }
+    }
+    obsCtx.putImageData(obsImg, 0, 0); shCtx.putImageData(shImg, 0, 0);
+    obsDirty = false;
+  }
+
+  function renderPheromones(night) {
+    const d = pherImg.data, [c0, c1] = cols;
+    const f0c = COL[0].food, h0c = COL[0].home, f1c = COL[1].food, h1c = COL[1].home;
+    const gain = 0.85 + 0.5 * night;
+    const w = v => v < 0.02 ? 0 : Math.pow(Math.min(v / 4, 1), 0.7) * gain;
+    for (let i = 0, n = gw * gh; i < n; i++) {
+      const o = i * 4;
+      const a = w(c0.food[i]), b = w(c0.home[i]), c = w(c1.food[i]), e = w(c1.home[i]), al = w(c0.alarm[i] + c1.alarm[i]);
+      const tot = a + b + c + e + al;
+      if (tot < 0.01) { d[o + 3] = 0; continue; }
+      d[o]     = (a * f0c[0] + b * h0c[0] + c * f1c[0] + e * h1c[0] + al * 255) / tot;
+      d[o + 1] = (a * f0c[1] + b * h0c[1] + c * f1c[1] + e * h1c[1] + al * 235) / tot;
+      d[o + 2] = (a * f0c[2] + b * h0c[2] + c * f1c[2] + e * h1c[2] + al * 80) / tot;
+      d[o + 3] = Math.min(1, tot) * 255;
+    }
+    pherCtx.putImageData(pherImg, 0, 0);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.filter = 'blur(3px)';
+    ctx.drawImage(pherCv, 0, 0, gw * CELL, gh * CELL);
+    ctx.filter = 'none';
+    ctx.globalAlpha = 0.6;
+    ctx.drawImage(pherCv, 0, 0, gw * CELL, gh * CELL);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function drawNest(c) {
+    const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, NEST_R * 2.6);
+    g.addColorStop(0, 'rgba(150,105,66,.7)'); g.addColorStop(1, 'rgba(150,105,66,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, c.y, NEST_R * 2.6, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#6a4a30'; ctx.beginPath(); ctx.arc(c.x, c.y, NEST_R, 0, TAU); ctx.fill();
+    ctx.strokeStyle = c.body; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = '#25160c'; ctx.beginPath(); ctx.arc(c.x, c.y, NEST_R * 0.5, 0, TAU); ctx.fill();
+  }
+
+  function drawFood(f) {
+    const k = f.amount / f.max, r = f.r * (0.45 + 0.55 * k);
+    const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r * 2.4);
+    g.addColorStop(0, 'rgba(255,214,90,.45)'); g.addColorStop(1, 'rgba(255,214,90,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, r * 2.4, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#e0a526'; ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffd25a';
+    for (const [gx, gy, gr] of f.g) { ctx.beginPath(); ctx.arc(f.x + gx * r * 0.6, f.y + gy * r * 0.6, gr * (0.5 + k * 0.5), 0, TAU); ctx.fill(); }
+  }
+
+  function drawAnteater(A) {
+    ctx.save(); ctx.translate(A.x, A.y); ctx.rotate(A.a);
+    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(3, 7, 36, 15, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#3b2f2a'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    for (let i = 0; i < 4; i++) {
+      const lx = i < 2 ? 14 : -18, side = i % 2 ? 1 : -1, sw = Math.sin(A.leg + (i % 3) * 2.1) * 5;
+      ctx.beginPath(); ctx.moveTo(lx, side * 8); ctx.lineTo(lx + sw, side * 14); ctx.stroke();
+    }
+    ctx.fillStyle = '#54453d';   // buschiger Schwanz
+    ctx.beginPath(); ctx.ellipse(-46, 0, 28, 10, Math.sin(A.leg * 0.6) * 0.12, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#7d6a5e';
+    ctx.beginPath(); ctx.ellipse(0, 0, 31, 15, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#2b2320'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(20, -11); ctx.quadraticCurveTo(2, -2, -14, 7); ctx.stroke();
+    ctx.fillStyle = '#8b786b';
+    ctx.beginPath(); ctx.ellipse(32, 0, 11, 8, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(38, -5); ctx.lineTo(72, -1.5); ctx.lineTo(72, 1.5); ctx.lineTo(38, 5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#1a1210'; ctx.beginPath(); ctx.arc(73, 0, 2, 0, TAU); ctx.arc(34, -4, 1.8, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSurface() {
+    const night = nightAmount();
+    ctx.drawImage(groundCv, 0, 0, W, H);
+    if (obsDirty) rebuildObstacles();
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(shCv, 2, 3, gw * CELL, gh * CELL);
+    ctx.drawImage(obsCv, 0, 0, gw * CELL, gh * CELL);
+    ctx.fillStyle = `rgba(6,12,42,${0.55 * night})`; ctx.fillRect(0, 0, W, H);
+    renderPheromones(night);
+    for (const f of foods) drawFood(f);
+    for (const c of cols) drawNest(c);
+    for (const a of ants) {
+      const c = cols[a.col];
+      drawAnt(a.x, a.y, a.a, antScale(a.role), c.body, c.dark, a.leg, a.carry, a.role);
+    }
+    if (anteater) drawAnteater(anteater);
+    ctx.fillStyle = `rgba(6,12,42,${0.22 * night})`; ctx.fillRect(0, 0, W, H);
+    const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, `rgba(0,0,0,${0.35 + 0.25 * night})`);
+    ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+  }
+
+  // ---------- Zeichnen: Untergrund ----------
+  const mix = (a, b, t) => `rgb(${lerp(a[0], b[0], t) | 0},${lerp(a[1], b[1], t) | 0},${lerp(a[2], b[2], t) | 0})`;
+  const stars = Array.from({ length: 50 }, () => [Math.random(), Math.random(), Math.random()]);
+
+  function strokePartial(p, upto) {
+    ctx.beginPath(); ctx.moveTo(p.pts[0][0], p.pts[0][1]);
+    for (let i = 1; i < p.pts.length; i++) {
+      if (p.cum[i] <= upto) ctx.lineTo(p.pts[i][0], p.pts[i][1]);
+      else {
+        const t = (upto - p.cum[i - 1]) / (p.cum[i] - p.cum[i - 1]);
+        ctx.lineTo(lerp(p.pts[i - 1][0], p.pts[i][0], t), lerp(p.pts[i - 1][1], p.pts[i][1], t));
+        break;
+      }
+    }
+    ctx.stroke();
+  }
+
+  function drawUnderground() {
+    const SY = ugSY(), night = nightAmount();
+    const sky = ctx.createLinearGradient(0, 0, 0, SY);
+    sky.addColorStop(0, mix([90, 164, 230], [7, 11, 36], night));
+    sky.addColorStop(1, mix([191, 224, 245], [23, 34, 74], night));
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, SY);
+    if (night > 0.2) {
+      ctx.fillStyle = `rgba(255,255,255,${night * 0.8})`;
+      for (const [sx, sy, sr] of stars) { ctx.beginPath(); ctx.arc(sx * W, sy * SY * 0.7, 0.6 + sr, 0, TAU); ctx.fill(); }
+    }
+    const phase = (dayTick % DAY_LEN) / DAY_LEN * TAU;
+    const sunUp = Math.cos(phase), sx = W * (0.5 + 0.42 * Math.sin(phase));
+    if (sunUp > -0.15) {
+      ctx.fillStyle = '#ffe27a'; ctx.shadowColor = '#ffe27a'; ctx.shadowBlur = 20;
+      ctx.beginPath(); ctx.arc(sx, SY * 0.85 - SY * 0.65 * Math.max(0, sunUp), 11, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
+    }
+    if (sunUp < 0.15) {
+      ctx.fillStyle = '#e8ecf5';
+      ctx.beginPath(); ctx.arc(W - sx, SY * 0.85 - SY * 0.65 * Math.max(0, -sunUp), 9, 0, TAU); ctx.fill();
+    }
+    ctx.drawImage(ugCv, 0, 0, W, H);
+    ctx.fillStyle = `rgba(6,12,42,${0.4 * night})`; ctx.fillRect(0, 0, W, SY);
+
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const c of cols) {
+      const ug = c.ug;
+      // Hügel + Fahne an der Oberfläche
+      const m = Math.min(36, 8 + ug.mound * 0.1);
+      ctx.fillStyle = '#7a5636'; ctx.beginPath(); ctx.moveTo(c.x - m, SY + 1);
+      ctx.quadraticCurveTo(c.x, SY - m * 0.95, c.x + m, SY + 1); ctx.fill();
+      ctx.strokeStyle = '#d6c9b5'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(c.x + m * 0.7, SY); ctx.lineTo(c.x + m * 0.7, SY - 26); ctx.stroke();
+      ctx.fillStyle = c.body; ctx.beginPath(); ctx.moveTo(c.x + m * 0.7, SY - 26); ctx.lineTo(c.x + m * 0.7 + 12, SY - 22); ctx.lineTo(c.x + m * 0.7, SY - 18); ctx.fill();
+      ctx.fillStyle = '#1d120a'; ctx.beginPath(); ctx.ellipse(c.x, SY, 5, 3, 0, 0, TAU); ctx.fill();
+      // Gänge
+      for (const [col, w] of [['#52392a', 17], ['#1d120a', 12]]) {
+        ctx.strokeStyle = col; ctx.lineWidth = w;
+        for (const t of ug.tunnels) if (t.prog > 0) strokePartial(t.own, t.prog);
+      }
+      // Kammern
+      for (const t of ug.tunnels) {
+        const ch = t.ch; if (ch.r < 1) continue;
+        ctx.fillStyle = '#1d120a'; ctx.strokeStyle = '#52392a'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.ellipse(ch.x, ch.y, ch.r * 1.3, ch.r, 0, 0, TAU); ctx.stroke(); ctx.fill();
+      }
+      // Inhalte
+      const done = t => t.ch.r > 8;
+      const eggT = ug.tunnels.find(t => t.ch.type === 'Brutkammer' && done(t)) || ug.tunnels[0];
+      const eggs = Math.min(c.eggs.length, 24);
+      ctx.fillStyle = '#f4efe0';
+      for (let k = 0; k < eggs; k++) {
+        const rr = Math.sqrt((k + 0.5) / 24) * eggT.ch.r * 0.8, th = k * 2.4;
+        const ox = eggT === ug.tunnels[0] ? 0 : 0;
+        ctx.beginPath(); ctx.ellipse(eggT.ch.x + Math.cos(th) * rr * 1.2 + ox, eggT.ch.y + Math.sin(th) * rr + (eggT === ug.tunnels[0] ? 7 : 0), 2.6, 1.9, th, 0, TAU); ctx.fill();
+      }
+      const store = ug.tunnels.find(t => t.ch.type === 'Vorrat' && done(t));
+      if (store) {
+        ctx.fillStyle = '#ffd25a';
+        const cnt = Math.min(c.stock, 70);
+        for (let k = 0; k < cnt; k++) {
+          const rr = Math.sqrt((k + 0.5) / 70) * store.ch.r * 0.85, th = k * 2.4;
+          ctx.beginPath(); ctx.arc(store.ch.x + Math.cos(th) * rr * 1.25, store.ch.y + Math.sin(th) * rr, 2, 0, TAU); ctx.fill();
+        }
+      }
+      if (c.queen && !c.queen.dead) {
+        const q = ug.tunnels[0].ch;
+        drawAnt(q.x - 8, q.y - 8, tick * 0.002 + c.id, 2.4, c.body, c.dark, tick * 0.02, false, 2);
+      }
+      // Beschriftung
+      ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.75)';
+      for (const t of ug.tunnels) if (t.ch.r > 8) ctx.fillText(t.ch.type, t.ch.x, t.ch.y - t.ch.r - 5);
+      ctx.font = '600 12px system-ui, sans-serif'; ctx.fillStyle = c.body;
+      ctx.fillText(c.name + 'e Kolonie', c.x, SY + 18);
+      // Ameisen im Bau
+      for (const m of ug.traffic) {
+        const p = pointAt(m.t.fullPath, m.s);
+        drawAnt(p.x, p.y, p.ang + (m.dir < 0 ? Math.PI : 0), 1.0, c.body, c.dark, m.leg, false, 0);
+      }
+      for (const d of ug.diggers) {
+        if (d.pause > 0) continue;
+        const p = pointAt(ug.proj.fullPath, d.s);
+        drawAnt(p.x, p.y, p.ang + (d.state === 'up' ? Math.PI : 0), 1.0, c.body, c.dark, d.leg, false, 0);
+        if (d.carry) { ctx.fillStyle = '#8a6444'; ctx.beginPath(); ctx.arc(p.x + Math.cos(p.ang + Math.PI) * 5, p.y + Math.sin(p.ang + Math.PI) * 5, 2.2, 0, TAU); ctx.fill(); }
+      }
+    }
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(0, SY, W, H - SY);   // Tiefe
+  }
+
+  // ---------- Diagramm ----------
+  function drawChart() {
+    const w = 300, h = 200;
+    cg.clearRect(0, 0, w, h);
+    const colors = ['#6aa0ff', '#ff6a5c'];
+    const plot = (y0, ph, title, key) => {
+      const x0 = 34, pw = w - x0 - 8;
+      let mx = 10;
+      for (const s of hist) mx = Math.max(mx, s[key][0], s[key][1]);
+      mx = Math.ceil(mx / 10) * 10;
+      cg.font = '10px system-ui, sans-serif'; cg.fillStyle = 'rgba(232,237,242,.75)'; cg.textAlign = 'left';
+      cg.fillText(title, x0, y0 - 3);
+      cg.strokeStyle = 'rgba(255,255,255,.12)'; cg.lineWidth = 1; cg.textAlign = 'right';
+      for (let i = 0; i <= 2; i++) {
+        const y = y0 + ph - ph * i / 2;
+        cg.beginPath(); cg.moveTo(x0, y); cg.lineTo(x0 + pw, y); cg.stroke();
+        cg.fillStyle = 'rgba(232,237,242,.5)'; cg.fillText(String(Math.round(mx * i / 2)), x0 - 4, y + 3);
+      }
+      for (let ci = 0; ci < 2; ci++) {
+        if (hist.length < 2) break;
+        cg.beginPath();
+        hist.forEach((s, i) => {
+          const x = x0 + (i + HIST_MAX - hist.length) / (HIST_MAX - 1) * pw;
+          const y = y0 + ph - s[key][ci] / mx * ph;
+          i ? cg.lineTo(x, y) : cg.moveTo(x, y);
+        });
+        cg.strokeStyle = colors[ci]; cg.lineWidth = 1.8; cg.stroke();
+        cg.lineTo(x0 + pw, y0 + ph); cg.lineTo(x0 + (HIST_MAX - hist.length) / (HIST_MAX - 1) * pw, y0 + ph);
+        cg.fillStyle = ci ? 'rgba(255,106,92,.12)' : 'rgba(106,160,255,.12)'; cg.fill();
+      }
+    };
+    plot(18, 66, 'Koloniegröße', 'p');
+    plot(112, 66, 'Futtervorrat', 's');
+    cg.textAlign = 'left'; cg.font = '10px system-ui, sans-serif';
+    cg.fillStyle = colors[0]; cg.fillText('● Blau', 34, 195);
+    cg.fillStyle = colors[1]; cg.fillText('● Rot', 84, 195);
+    cg.fillStyle = 'rgba(232,237,242,.45)'; cg.textAlign = 'right'; cg.fillText('Zeit →', w - 8, 195);
+  }
+
+  // ---------- HUD ----------
+  function updateHud() {
+    for (const c of cols) {
+      $('c' + c.id + 'f').textContent = c.collected;
+      $('c' + c.id + 's').textContent = c.stock;
+      $('c' + c.id + 'n').textContent = c.n;
+      $('c' + c.id + 'x').textContent =
+        `Königin ${c.queen ? '✓' : '✗'} · Soldaten ${c.sold} · Eier ${c.eggs.length} · Verluste ${c.died}`;
+    }
+    const night = nightAmount();
+    const env = $('env');
+    env.textContent = (night > 0.5 ? '🌙 Nacht' : '☀ Tag') + (anteater ? ' · ⚠ Ameisenbär!' : '');
+    env.classList.toggle('alert', !!anteater);
+  }
+
+  // ---------- Eingabe ----------
+  let painting = 0;   // 0 = nein, 1 = zeichnen, -1 = radieren
+  let lastPt = null;
+  const BRUSH = 9;
+
+  function paint(x, y, val) {
+    const R = Math.ceil(BRUSH / CELL);
+    const cx = (x / CELL) | 0, cy = (y / CELL) | 0;
+    for (let gy = cy - R; gy <= cy + R; gy++) {
+      for (let gx = cx - R; gx <= cx + R; gx++) {
+        if (!inGrid(gx, gy)) continue;
+        if ((gx * CELL + CELL / 2 - x) ** 2 + (gy * CELL + CELL / 2 - y) ** 2 > BRUSH * BRUSH) continue;
+        const px = gx * CELL + CELL / 2, py = gy * CELL + CELL / 2;
+        if (val && cols.some(c => Math.hypot(c.x - px, c.y - py) < NEST_R + 12)) continue;
+        obs[gy * gw + gx] = val ? 1 : 0;
+      }
+    }
+    obsDirty = true;
+  }
+  function paintLine(p0, p1, val) {
+    const d = Math.hypot(p1.x - p0.x, p1.y - p0.y), n = Math.max(1, Math.ceil(d / 3));
+    for (let i = 1; i <= n; i++) paint(lerp(p0.x, p1.x, i / n), lerp(p0.y, p1.y, i / n), val);
+  }
+
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  canvas.addEventListener('pointerdown', e => {
+    if (underground) return;
+    const pt = { x: e.clientX, y: e.clientY };
+    if (e.shiftKey) {
+      painting = e.button === 2 ? -1 : 1;
+      canvas.setPointerCapture(e.pointerId);
+      lastPt = pt; paint(pt.x, pt.y, painting > 0 ? 1 : 0);
+    } else if (e.button === 0) {
+      if (!blocked(pt.x, pt.y)) addFood(pt.x, pt.y);
+    }
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!painting) return;
+    const pt = { x: e.clientX, y: e.clientY };
+    paintLine(lastPt, pt, painting > 0 ? 1 : 0); lastPt = pt;
+  });
+  const endPaint = () => { painting = 0; lastPt = null; };
+  canvas.addEventListener('pointerup', endPaint);
+  canvas.addEventListener('pointercancel', endPaint);
+
+  function toggleView() {
+    underground = !underground;
+    $('viewBtn').classList.toggle('on', underground);
+    $('viewBtn').textContent = underground ? 'Oberfläche (U)' : 'Untergrund (U)';
+  }
+  function callAnteater() { if (!anteater) spawnAnteater(); }
+
+  $('viewBtn').addEventListener('click', toggleView);
+  $('bearBtn').addEventListener('click', callAnteater);
+  $('clearBtn').addEventListener('click', () => { obs.fill(0); obsDirty = true; });
+  $('reset').addEventListener('click', init);
+  addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+    if (e.key === 'u' || e.key === 'U') toggleView();
+    else if (e.key === 'a' || e.key === 'A') callAnteater();
+  });
   addEventListener('resize', resize);
 
+  function bindSlider(id, out, fmt, apply) {
+    const el = $(id), o = $(out);
+    const f = () => { apply(+el.value); o.textContent = fmt(+el.value); };
+    el.addEventListener('input', f); f();
+  }
+  bindSlider('cap', 'oCap', v => v, v => cfg.cap = v);
+  bindSlider('speed', 'oSpeed', v => v + '×', v => cfg.speed = v);
+  bindSlider('fade', 'oFade', v => v < 25 ? 'langsam' : v < 60 ? 'mittel' : 'schnell', v => cfg.fade = v);
+
+  // ---------- Hauptschleife ----------
+  let frame = 0;
+  function loop() {
+    acc += cfg.speed;
+    let guard = 0;
+    while (acc >= 1 && guard++ < 12) { step(); acc -= 1; }
+    if (acc > 1) acc = 0;
+    if (underground) drawUnderground(); else drawSurface();
+    if (frame++ % 3 === 0) { updateHud(); drawChart(); }
+    requestAnimationFrame(loop);
+  }
+
   resize();
-  frame();
+  loop();
+  window.__ants = { get state() { return { cols, ants, anteater, foods, tick }; }, step, spawnAnteater };
 })();
 </script>
 </body>
